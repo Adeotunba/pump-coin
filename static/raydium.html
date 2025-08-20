@@ -1,0 +1,132 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>pump.coin — Raydium Preflight</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://unpkg.com/@solana/web3.js@1.95.3/lib/index.iife.js"></script>
+</head>
+<body class="min-h-screen bg-gradient-to-b from-slate-950 to-black text-slate-100">
+  <div class="max-w-3xl mx-auto p-6">
+    <header class="flex items-center justify-between">
+      <h1 class="text-2xl font-extrabold">pump<span class="text-sky-400">.coin</span> <span class="text-xs align-super">Raydium</span></h1>
+      <a href="/" class="px-3 py-2 rounded-xl border border-slate-700 text-sm">← Wizard</a>
+    </header>
+
+    <section class="mt-6 bg-slate-900/40 border border-slate-800 rounded-2xl p-6">
+      <h2 class="text-lg font-semibold">Permissionless Pool — Preflight</h2>
+      <p class="text-sm text-slate-400">We’ll compute exact token + USDC amounts and give a checklist. You can also auto-fetch decimals from chain.</p>
+
+      <div class="grid grid-cols-1 md:grid-cols-5 gap-3 mt-4">
+        <label class="text-sm md:col-span-3">Your Token Mint
+          <input id="mint" class="mt-1 w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2" placeholder="Token mint address" />
+        </label>
+        <label class="text-sm">Decimals
+          <div class="flex gap-2">
+            <input id="dec" value="6" class="mt-1 w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2" />
+            <button id="fetchDec" class="mt-1 px-3 py-2 rounded-xl border border-slate-700 text-sm">Fetch</button>
+          </div>
+        </label>
+        <label class="text-sm">Supply (tokens)
+          <input id="supply" value="1000000000" class="mt-1 w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2" />
+        </label>
+        <label class="text-sm">LP %
+          <input id="lp" value="8" class="mt-1 w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2" />
+        </label>
+        <label class="text-sm">USDC price per token
+          <input id="px" value="0.000001" class="mt-1 w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2" />
+        </label>
+      </div>
+
+      <div class="mt-4 flex flex-wrap gap-3">
+        <button id="compute" class="px-4 py-2 rounded-xl bg-sky-500 hover:bg-sky-400 text-black font-semibold">Compute Plan</button>
+        <button id="copyPlan" class="px-4 py-2 rounded-xl border border-slate-700">Copy Amounts</button>
+        <a href="https://raydium.io/" target="_blank" class="px-4 py-2 rounded-xl bg-emerald-300 text-black font-semibold">Open Raydium</a>
+        <button id="toWizard" class="px-4 py-2 rounded-xl bg-amber-300 text-black font-semibold">Send to Wizard (Step 4)</button>
+      </div>
+
+      <pre id="out" class="hidden mt-3 bg-slate-950 border border-slate-800 rounded-xl p-3 overflow-x-auto"></pre>
+      <div class="text-xs text-slate-500 mt-3">
+        Tip: On Raydium, use the <b>permissionless pool creator</b> for <b>Your Token ↔ USDC</b>. Deposit exactly the amounts shown.
+      </div>
+    </section>
+  </div>
+
+  <script type="module">
+    import { getMint } from "https://cdn.jsdelivr.net/npm/@solana/spl-token@0.4.7/dist/index.browser.esm.min.js";
+    const { Connection, PublicKey } = solanaWeb3;
+
+    const $ = (id)=>document.getElementById(id);
+    const net = localStorage.getItem("network") || "devnet";
+    const rpc = net === "devnet" ? "https://api.devnet.solana.com" : "https://api.mainnet-beta.solana.com";
+    const conn = new Connection(rpc, "confirmed");
+
+    try {
+      const qs = new URLSearchParams(location.search);
+      const mint = qs.get("mint") || localStorage.getItem("mintedMint") || "";
+      if (mint) $("mint").value = mint;
+    } catch {}
+
+    $("fetchDec").onclick = async () => {
+      try {
+        const mint = ($("mint").value||"").trim(); if (!mint) return alert("Enter mint first.");
+        const info = await getMint(conn, new PublicKey(mint));
+        $("dec").value = String(info.decimals);
+      } catch (e) { console.error(e); alert("Could not fetch decimals for that mint."); }
+    };
+
+    function plan() {
+      const decimals = parseInt($("dec").value || "6", 10);
+      const supply = parseInt($("supply").value || "0", 10);
+      const lpPct = parseFloat($("lp").value || "8");
+      const price = parseFloat($("px").value || "0.000001");
+      const mint = ($("mint").value || "").trim();
+      if (!mint) { alert("Enter your token mint."); return null; }
+      if (supply <= 0) { alert("Supply must be positive."); return null; }
+
+      const lpTokens = Math.floor(supply * (lpPct/100));
+      const usdcNeeded = lpTokens * price;
+      const fdv = supply * price;
+
+      return {
+        network: net,
+        token_mint: mint,
+        token_decimals: decimals,
+        lp_tokens_to_deposit: lpTokens,
+        estimated_usdc_to_deposit: +usdcNeeded.toFixed(6),
+        initial_pool_value_usd: +(usdcNeeded*2).toFixed(2),
+        implied_fdv_usd: +fdv.toFixed(2),
+        checklist: [
+          "1) Ensure wallet has SOL for fees.",
+          `2) Hold at least ${lpTokens.toLocaleString()} tokens for LP.`,
+          `3) Fund ~${usdcNeeded.toFixed(6)} USDC.`,
+          "4) Create ATAs for token & USDC if missing.",
+          "5) In Raydium → permissionless pool creator: Your Token ↔ USDC.",
+          "6) Deposit exactly the computed amounts. Confirm.",
+          "7) Optional: renounce mint authority after go-live."
+        ]
+      };
+    }
+
+    $("compute").onclick = () => {
+      const p = plan(); if (!p) return;
+      const out = $("out"); out.textContent = JSON.stringify(p, null, 2); out.classList.remove("hidden");
+    };
+
+    $("copyPlan").onclick = async () => {
+      const p = plan(); if (!p) return;
+      const text = `Mint: ${p.token_mint}\nDecimals: ${p.token_decimals}\nLP tokens: ${p.lp_tokens_to_deposit}\nUSDC: ${p.estimated_usdc_to_deposit}\nInitial pool value: $${p.initial_pool_value_usd}\nFDV: $${p.implied_fdv_usd}`;
+      await navigator.clipboard.writeText(text);
+      alert("Plan copied.");
+    };
+
+    $("toWizard").onclick = () => {
+      const mint = ($("mint").value||"").trim();
+      if (!mint) return alert("Enter mint first.");
+      localStorage.setItem("mintedMint", mint);
+      location.href = `/?mint=${mint}&go=4`;
+    };
+  </script>
+</body>
+</html>

@@ -1,0 +1,106 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>pump.coin — Mint Token</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://unpkg.com/@solana/web3.js@1.95.3/lib/index.iife.js"></script>
+</head>
+<body class="min-h-screen bg-gradient-to-b from-slate-950 to-black text-slate-100">
+  <div class="max-w-xl mx-auto p-6">
+    <header class="flex items-center justify-between">
+      <h1 class="text-2xl font-extrabold">pump<span class="text-sky-400">.coin</span> <span class="text-xs align-super">Mint</span></h1>
+      <div class="flex items-center gap-2">
+        <select id="network" class="bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 text-sm">
+          <option value="devnet" selected>devnet</option>
+          <option value="mainnet-beta">mainnet-beta</option>
+        </select>
+        <a href="/" class="px-3 py-2 rounded-xl border border-slate-700 text-sm">Wizard</a>
+        <button id="connectBtn" class="px-4 py-2 rounded-xl bg-sky-500 hover:bg-sky-400 text-black font-semibold">Connect Phantom</button>
+      </div>
+    </header>
+
+    <section class="mt-6 bg-slate-900/40 border border-slate-800 rounded-2xl p-6">
+      <h2 class="text-lg font-semibold">Create SPL Token</h2>
+      <p class="text-sm text-slate-400">Devnet only in-app (safe for testing). After mint, you’ll jump to Step 2 in the wizard.</p>
+      <div class="grid grid-cols-1 md:grid-cols-3 gap-3 mt-4">
+        <label class="text-sm">Decimals
+          <input id="decimals" value="6" class="mt-1 w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2" />
+        </label>
+        <label class="text-sm">Total Supply (tokens)
+          <input id="supply" value="1000000000" class="mt-1 w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2" />
+        </label>
+        <label class="text-sm">Mint to (your ATA)
+          <input id="to" placeholder="auto = your wallet" class="mt-1 w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2" disabled />
+        </label>
+      </div>
+      <button id="mintBtn" class="mt-4 px-4 py-2 rounded-xl bg-white/90 text-black font-semibold">Create Token (Devnet)</button>
+      <div id="mintInfo" class="mt-4 text-sm hidden"></div>
+      <pre id="log" class="hidden mt-3 bg-slate-950 border border-slate-800 rounded-xl p-3 overflow-x-auto"></pre>
+    </section>
+
+    <div class="mt-6 text-sm text-slate-400">
+      Already minted? <a class="underline" href="/?go=2">Skip to Step 2</a>
+    </div>
+  </div>
+
+  <script type="module">
+    import {
+      TOKEN_PROGRAM_ID, MINT_SIZE, getAssociatedTokenAddress,
+      createAssociatedTokenAccountInstruction, createInitializeMint2Instruction,
+      createMintToInstruction
+    } from "https://cdn.jsdelivr.net/npm/@solana/spl-token@0.4.7/dist/index.browser.esm.min.js";
+
+    const { SystemProgram, Connection, PublicKey, Transaction, Keypair } = solanaWeb3;
+    const $ = (id)=>document.getElementById(id);
+    let walletAddr = null;
+    const netUrl = () => ($("network").value === "devnet" ? "https://api.devnet.solana.com" : "https://api.mainnet-beta.solana.com");
+
+    $("connectBtn").onclick = async () => {
+      if (!window.solana || !window.solana.isPhantom) return alert("Phantom not found.");
+      const resp = await window.solana.connect();
+      walletAddr = resp.publicKey.toString();
+      $("to").value = walletAddr;
+    };
+
+    const log = (msg)=>{ const e=$("log"); e.textContent = typeof msg==="string"? msg : JSON.stringify(msg,null,2); e.classList.remove("hidden"); };
+    const show = (html)=>{ const e=$("mintInfo"); e.innerHTML = html; e.classList.remove("hidden"); };
+
+    $("mintBtn").onclick = async () => {
+      if ($("network").value !== "devnet") return alert("In-app minting is DEVNET only. Switch to devnet.");
+      if (!walletAddr) return alert("Connect Phantom first.");
+      try {
+        const connection = new Connection(netUrl(), "confirmed");
+        const payer = new PublicKey(walletAddr);
+        const decimals = parseInt($("decimals").value || "6", 10);
+        const supplyTokens = BigInt($("supply").value || "0");
+        if (supplyTokens <= 0n) return alert("Supply must be a positive integer.");
+        const amount = supplyTokens * (10n ** BigInt(decimals));
+
+        const mint = Keypair.generate();
+        const lamports = await connection.getMinimumBalanceForRentExemption(MINT_SIZE);
+        const ixCreate = SystemProgram.createAccount({ fromPubkey: payer, newAccountPubkey: mint.publicKey, space: MINT_SIZE, lamports, programId: TOKEN_PROGRAM_ID });
+        const ixInit   = createInitializeMint2Instruction(mint.publicKey, decimals, payer, null, TOKEN_PROGRAM_ID);
+        const ata      = await getAssociatedTokenAddress(mint.publicKey, payer);
+        const ixAta    = createAssociatedTokenAccountInstruction(payer, ata, payer, mint.publicKey);
+        const ixMintTo = createMintToInstruction(mint.publicKey, ata, payer, amount);
+
+        const tx = new Transaction().add(ixCreate, ixInit, ixAta, ixMintTo);
+        const { blockhash } = await connection.getLatestBlockhash();
+        tx.recentBlockhash = blockhash; tx.feePayer = payer; tx.partialSign(mint);
+
+        const sig = await window.solana.signAndSendTransaction(tx);
+        const cluster = $("network").value;
+        const mintAddr = mint.publicKey.toBase58();
+
+        localStorage.setItem("mintedMint", mintAddr);
+        show(`Mint created ✅ — <code>${mintAddr}</code><br>Redirecting to Step&nbsp;2… (<a class="underline" href="/?mint=${mintAddr}&go=2">click if not redirected</a>)`);
+        setTimeout(()=>location.href = `/?mint=${mintAddr}&go=2`, 1200);
+      } catch (e) {
+        console.error(e); log("Mint failed. Make sure Phantom is unlocked and you have devnet SOL.");
+      }
+    };
+  </script>
+</body>
+</html>
