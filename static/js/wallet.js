@@ -1,34 +1,54 @@
-// static/js/wallet.js
-(() => {
-  const getProvider = () => window.solana || (window.phantom && window.phantom.solana);
-  const short = (s) => (s && s.length > 8) ? `${s.slice(0,4)}…${s.slice(-4)}` : s;
+// Minimal Phantom connect helper (no <script> wrappers)
+(function () {
+  const btn = document.getElementById('connectBtn');
+  const addr = document.getElementById('walletAddr');
+
+  function shorten(pk) { return pk.slice(0, 4) + '…' + pk.slice(-4); }
 
   async function connectPhantom() {
-    const provider = getProvider();
-    if (!provider || !provider.isPhantom) {
-      alert("Phantom wallet not found. Please install it first.");
-      window.open("https://phantom.app/download", "_blank");
-      return;
-    }
     try {
-      const { publicKey } = await provider.connect({ onlyIfTrusted: false });
-      const pk = publicKey.toBase58();
-      localStorage.setItem("wallet_pubkey", pk);
-      document.querySelectorAll("[data-wallet-text]").forEach(el => el.textContent = short(pk));
-      document.querySelectorAll('[data-connect="phantom"]').forEach(btn => btn.classList.add("connected"));
-      console.log("Connected:", pk);
+      const p = window.solana;
+      if (!p || !p.isPhantom) {
+        alert("Phantom not detected. Please install Phantom Wallet.");
+        window.open("https://phantom.app/", "_blank");
+        return;
+      }
+      const resp = await p.connect({ onlyIfTrusted: false });
+      const pubkey = resp?.publicKey?.toString?.();
+      if (pubkey) {
+        if (addr) addr.textContent = shorten(pubkey);
+        if (btn) {
+          btn.textContent = "Connected";
+          btn.disabled = true;
+          btn.classList.add("opacity-70","cursor-not-allowed");
+        }
+        localStorage.setItem("wallet_pubkey", pubkey);
+      }
     } catch (e) {
-      console.error("Wallet connect error:", e);
+      console.error("Phantom connect error:", e);
+      alert("Could not connect wallet. Check Phantom popup or unlock your wallet.");
     }
   }
 
-  window.addEventListener("DOMContentLoaded", () => {
-    document.querySelectorAll('[data-connect="phantom"]').forEach(btn => {
-      btn.addEventListener("click", connectPhantom);
-    });
-    const stored = localStorage.getItem("wallet_pubkey");
-    if (stored) {
-      document.querySelectorAll("[data-wallet-text]").forEach(el => el.textContent = short(stored));
+  async function bootstrap() {
+    const p = window.solana;
+    if (p?.isPhantom) {
+      try {
+        const resp = await p.connect({ onlyIfTrusted: true });
+        const pubkey = resp?.publicKey?.toString?.();
+        if (pubkey) {
+          if (addr) addr.textContent = shorten(pubkey);
+          if (btn) {
+            btn.textContent = "Connected";
+            btn.disabled = true;
+            btn.classList.add("opacity-70","cursor-not-allowed");
+          }
+          localStorage.setItem("wallet_pubkey", pubkey);
+        }
+      } catch {}
     }
-  });
+  }
+
+  if (btn) btn.addEventListener("click", connectPhantom);
+  document.addEventListener("DOMContentLoaded", bootstrap);
 })();
