@@ -1,17 +1,6 @@
-﻿# Python
+﻿.venv/
 __pycache__/
-*.py[cod]
-*.log
-
-# Virtual env
-.venv/
-
-# Local app data
+*.pyc
 .env
-pumpcoin.db
+uploads/
 static/uploads/
-*.zip
-
-# OS junk
-.DS_Store
-Thumbs.db
