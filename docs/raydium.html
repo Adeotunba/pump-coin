@@ -1,0 +1,126 @@
+﻿<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>pump.coin â€” Raydium Plan (Devnet)</title>
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600&display=swap" rel="stylesheet" />
+  <style>
+    :root { --bg:#0b1220; --panel:#0f1628; --text:#dbe5ff; --muted:#8aa0c8; --accent:#7aa2ff; --btn:#1e2b4a; }
+    *{box-sizing:border-box} body{margin:0;background:var(--bg);font:16px/1.45 Inter,system-ui,-apple-system,Segoe UI,Roboto;color:var(--text)}
+    .wrap{max-width:980px;margin:40px auto;padding:0 20px}
+    .top{display:flex;justify-content:space-between;align-items:center;margin-bottom:18px}
+    .brand{font-weight:700;font-size:28px}
+    a{color:var(--accent);text-decoration:none}
+    .panel{background:var(--panel);border-radius:14px;padding:22px}
+    .row{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+    label{display:block;font-size:13px;color:var(--muted);margin-bottom:6px}
+    input,select{width:100%;padding:12px 14px;border-radius:10px;border:1px solid #1b2846;background:#0b1326;color:var(--text)}
+    .btn{background:var(--btn);border:1px solid #2a3a63;border-radius:10px;padding:12px 16px;color:var(--text);cursor:pointer}
+    .btn:disabled{opacity:.5;cursor:not-allowed}
+    .mt16{margin-top:16px}.mt24{margin-top:24px}.mt32{margin-top:32px}
+    .note{font-size:14px;color:var(--muted)}
+    .out{background:#0b1326;border:1px dashed #2a3a63;border-radius:10px;padding:14px}
+    .h{font-weight:600}
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="top">
+      <div class="brand">pump.coin</div>
+      <div><a href="/">â† Back home</a></div>
+    </div>
+
+    <div class="panel">
+      <h2>Step 2 â€” Raydium Plan (Devnet)</h2>
+      <p class="note">Paste your token mint, choose an opening price, and weâ€™ll calculate a simple initial LP split.</p>
+
+      <div class="mt16 row">
+        <div>
+          <label>Mint Address</label>
+          <input id="mint" placeholder="Paste your SPL mint" />
+        </div>
+        <div>
+          <label>Opening price (in SOL) for 1 token</label>
+          <input id="price" type="number" min="0" step="0.0000001" value="0.000001" />
+        </div>
+      </div>
+
+      <div class="mt16 row">
+        <div>
+          <label>Tokens to deposit in LP</label>
+          <input id="tokenQty" type="number" step="1" value="1000000" />
+        </div>
+        <div>
+          <label>Quote asset</label>
+          <select id="quote">
+            <option value="SOL" selected>SOL (wrapped)</option>
+            <option value="USDC">USDC (devnet)</option>
+          </select>
+        </div>
+      </div>
+
+      <button class="mt24 btn" id="calc">Calculate</button>
+
+      <div class="mt24 out" id="result" hidden>
+        <div class="h">Result</div>
+        <div id="lines" class="mt16"></div>
+      </div>
+
+      <div class="mt24 note">
+        <div class="h">Checklist (Devnet)</div>
+        <ol class="mt16">
+          <li>Make sure Phantom is on <b>Devnet</b>.</li>
+          <li>Wrap SOL if needed (swap a tiny SOLâ†’WSOL in Phantom).</li>
+          <li>Create a Raydium pool on Devnet UI (or CLI) with the pair: <b>your token</b> / <b>quote</b>.</li>
+          <li>Deposit the two sides in the amounts shown above.</li>
+          <li>After pool creation, add an open book market and a farm (optional) â€” for Devnet, this is only for testing.</li>
+        </ol>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // Try to prefill mint from localStorage if our mint page saved it
+    const mintInput = document.getElementById('mint');
+    const priceInput = document.getElementById('price');
+    const qtyInput = document.getElementById('tokenQty');
+    const quoteSel = document.getElementById('quote');
+    const btn = document.getElementById('calc');
+    const box = document.getElementById('result');
+    const lines = document.getElementById('lines');
+
+    try {
+      const stored = localStorage.getItem('lastMint');
+      if (stored && !mintInput.value) mintInput.value = stored;
+    } catch {}
+
+    function fmt(n){ return Number(n).toLocaleString(undefined,{maximumFractionDigits:9}); }
+
+    btn.onclick = () => {
+      const mint = mintInput.value.trim();
+      const price = Number(priceInput.value);
+      const qty = Number(qtyInput.value);
+      const quote = quoteSel.value;
+
+      if (!mint) { alert('Paste your mint address.'); return; }
+      if (!(price>0) || !(qty>0)) { alert('Enter a positive price and quantity.'); return; }
+
+      // Very simple constant-product starting amounts:
+      // if 1 token = P (in quote), then tokens=Q, quote needed = Q * P
+      const quoteNeeded = qty * price;
+
+      lines.innerHTML = `
+        <div>â€¢ <b>Mint:</b> ${mint}</div>
+        <div>â€¢ <b>Deposit tokens:</b> ${fmt(qty)}</div>
+        <div>â€¢ <b>Deposit ${quote}:</b> ${fmt(quoteNeeded)}</div>
+        <div class="mt16">Tip: keep some ${quote} spare for fees.</div>
+      `;
+      box.hidden = false;
+    };
+  </script>
+</body>
+</html>
+
