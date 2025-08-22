@@ -1,6 +1,0 @@
-﻿.venv/
-__pycache__/
-*.pyc
-.env
-uploads/
-static/uploads/
