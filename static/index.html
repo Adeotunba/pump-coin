@@ -5,39 +5,35 @@
   <meta name="viewport" content="width=device-width,initial-scale=1" />
   <title>pump.coin</title>
   <style>
-    body{margin:0;background:#0c1220;color:#e6ecff;font-family:system-ui,Segoe UI,Roboto,Arial}
-    .wrap{max-width:1100px;margin:32px auto;padding:0 20px}
-    .top{display:flex;gap:16px;align-items:center;justify-content:space-between}
-    .badge{background:#0f172a;border:1px solid #1f2a44;padding:6px 10px;border-radius:10px}
-    .card{margin-top:24px;background:#0f172a;border:1px solid #1f2a44;border-radius:16px;padding:24px}
-    .btn{background:#1d4ed8;border:0;color:#fff;padding:10px 14px;border-radius:10px;cursor:pointer}
-    .btn:disabled{opacity:.6;cursor:not-allowed}
-    .hidden{display:none}
-    a{color:#93c5fd}
+    body { background:#0b1220; color:#e8eefc; font-family: system-ui, Segoe UI, Roboto, Arial, sans-serif; }
+    .bar { display:flex; align-items:center; justify-content:space-between; gap:12px; padding:18px 22px; }
+    .brand { font-weight:700; font-size:22px; }
+    .chip { padding:6px 10px; border-radius:10px; background:#13203b; color:#9fb4d8; font-size:12px; }
+    .btn { padding:10px 14px; border-radius:12px; background:#22345b; border:1px solid #2f4b85; color:#dce7ff; cursor:pointer; }
+    .btn:hover { filter:brightness(1.1); }
+    .card { margin:24px auto; max-width:960px; background:#0f1a2f; border:1px solid #20345f; border-radius:14px; padding:22px; }
+    a { color:#9cc3ff; }
   </style>
 </head>
 <body>
-  <div class="wrap">
-    <div class="top">
-      <div style="display:flex;align-items:center;gap:12px;">
-        <div style="font-weight:700;font-size:22px;">pump.coin</div>
-        <span class="badge">devnet</span>
-      </div>
-      <div style="display:flex;gap:10px;align-items:center;">
-        <span id="wallet-status">Wallet: not connected</span>
-        <button id="connect-phantom" class="btn">Connect Phantom</button>
-        <button id="disconnect-phantom" class="btn hidden" style="background:#334155;">Disconnect</button>
-      </div>
-    </div>
-
-    <div class="card">
-      <h2>Welcome</h2>
-      <p>Start by minting your devnet token.</p>
-      <a class="btn" href="mint.html">Go to Mint →</a>
+  <div class="bar">
+    <div class="brand">pump.coin</div>
+    <div style="display:flex; gap:10px; align-items:center;">
+      <span class="chip">devnet</span>
+      <span id="wallet-status">Wallet: not connected</span>
+      <button id="connect-phantom" class="btn">Connect Phantom</button>
+      <button id="disconnect-phantom" class="btn" style="display:none">Disconnect</button>
     </div>
   </div>
 
-  <script src="static/js/agent.js"></script>
-  <script src="static/js/wallet.js"></script>
+  <div class="card">
+    <h2>Welcome</h2>
+    <p>Start by minting your devnet token.</p>
+    <p><a class="btn" href="mint.html">Go to Mint →</a></p>
+  </div>
+
+  <!-- Keep paths RELATIVE for GitHub Pages project site -->
+  <script src="static/js/agent.js?v=1" defer></script>
+  <script src="static/js/wallet.js?v=7" defer></script>
 </body>
 </html>
