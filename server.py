@@ -1,236 +1,148 @@
-﻿import os
-import re
-import json
-import base64
-import secrets
-from datetime import datetime
-from pathlib import Path
-
-from flask import Flask, request, jsonify
+﻿import os, json, base64, urllib.request
+from urllib.error import URLError, HTTPError
+from flask import Flask, request, jsonify, send_from_directory
 from flask_cors import CORS
 from dotenv import load_dotenv
 
-# -------------------------------------------------
-# App setup
-# -------------------------------------------------
 load_dotenv()
 
-ROOT = Path(__file__).resolve().parent
-STATIC_DIR = ROOT / "static"
-UPLOADS_DIR = STATIC_DIR / "uploads"
-META_DIR = STATIC_DIR / "meta"
+APP_PORT = int(os.environ.get("PORT", "5000"))
+APP_HOST = os.environ.get("HOST", "0.0.0.0")
 
-UPLOADS_DIR.mkdir(parents=True, exist_ok=True)
-META_DIR.mkdir(parents=True, exist_ok=True)
+# --- Solana RPC (devnet by default)
+RPC_URL = os.environ.get("PUMP_RPC", "https://api.devnet.solana.com")
+TREASURY = os.environ.get("PUMP_TREASURY", "")  # set to your SOL address for fee checks
 
-app = Flask(__name__, static_folder="static", static_url_path="")
+app = Flask(__name__, static_folder="static", static_url_path="/static")
 CORS(app)
 
-PORT = int(os.getenv("PORT", "5000"))
-
-# -------------------------------------------------
-# Pages (served from /static)
-# -------------------------------------------------
+# -------------------------------
+# Static pages
+# -------------------------------
 @app.route("/")
-def home():
-    return app.send_static_file("index.html")
+def root():
+    return send_from_directory("static", "index.html")
 
 @app.route("/mint")
-def mint_page():
-    return app.send_static_file("mint.html")
+def page_mint():
+    return send_from_directory("static", "mint.html")
 
 @app.route("/raydium")
-def raydium_page():
-    return app.send_static_file("raydium.html")
+def page_raydium():
+    return send_from_directory("static", "raydium.html")
 
 @app.route("/guardian")
-def guardian_page():
-    return app.send_static_file("guardian.html")
+def page_guardian():
+    return send_from_directory("static", "guardian.html")
 
-# -------------------------------------------------
-# Utilities
-# -------------------------------------------------
-def host_base() -> str:
-    # e.g., "http://127.0.0.1:5000"
-    return (request.host_url or "").rstrip("/")
-
-def slugify(s: str) -> str:
-    s = (s or "").strip().lower()
-    s = re.sub(r"[^a-z0-9]+", "-", s)
-    s = re.sub(r"-+", "-", s).strip("-")
-    return s or secrets.token_urlsafe(4)
-
-# -------------------------------------------------
-# Health
-# -------------------------------------------------
+# -------------------------------
+# Health + env
+# -------------------------------
 @app.route("/health")
 def health():
-    return jsonify({"ok": True, "ts": datetime.utcnow().isoformat() + "Z"})
+    return jsonify(ok=True, rpc=RPC_URL, treasury=bool(TREASURY))
 
-# -------------------------------------------------
-# Upload image (expects data_url)
-# -------------------------------------------------
-@app.route("/upload-asset", methods=["POST"])
-def upload_asset():
-    data = request.get_json(force=True) or {}
-    data_url = data.get("data_url") or ""
-    if not data_url.startswith("data:image/"):
-        return jsonify({"ok": False, "error": "Expected data_url starting with data:image/"}), 400
+@app.route("/api/env")
+def api_env():
+    return jsonify(network="devnet" if "devnet" in RPC_URL else "mainnet", rpc=RPC_URL, treasury=TreasuryOrNone())
 
+def TreasuryOrNone():
+    return TREASURY if TREASURY else None
+
+# -------------------------------
+# Verify a payment by signature
+# Body: { "signature": "...", "minLamports": 2000000, "to": "<optional override>" }
+# -------------------------------
+@app.route("/api/verify-payment", methods=["POST"])
+def verify_payment():
     try:
-        header, b64 = data_url.split(",", 1)
-        ext = "png"
-        if "image/png" in header:
-            ext = "png"
-        elif "image/jpeg" in header or "image/jpg" in header:
-            ext = "jpg"
-        elif "image/webp" in header:
-            ext = "webp"
+        data = request.get_json(force=True) or {}
+        sig = data.get("signature", "").strip()
+        min_lamports = int(data.get("minLamports", 0))
+        to_addr = (data.get("to") or TREASURY or "").strip()
 
-        raw = base64.b64decode(b64)
-        fname = f"{secrets.token_urlsafe(8)}.{ext}"
-        fpath = UPLOADS_DIR / fname
-        with open(fpath, "wb") as f:
-            f.write(raw)
+        if not sig:
+            return jsonify(ok=False, error="Missing signature"), 400
+        if not to_addr:
+            return jsonify(ok=False, error="Treasury not configured"), 500
 
-        url = f"{host_base()}/static/uploads/{fname}"
-        return jsonify({"ok": True, "url": url, "filename": fname})
-    except Exception as e:
-        return jsonify({"ok": False, "error": str(e)}), 400
-
-# -------------------------------------------------
-# Save metadata JSON (Metaplex-style)
-# -------------------------------------------------
-@app.route("/save-metadata", methods=["POST"])
-def save_metadata():
-    data = request.get_json(force=True) or {}
-    name = (data.get("name") or "Your Meme Token").strip()
-    symbol = (data.get("symbol") or "MEME").strip()
-    description = (data.get("description") or "").strip()
-    image_url = (data.get("image_url") or "").strip()
-    external_url = (data.get("external_url") or "").strip()
-    attributes = data.get("attributes") or []
-
-    # Minimal Metaplex metadata schema
-    meta = {
-        "name": name,
-        "symbol": symbol,
-        "description": description,
-        "image": image_url,
-        "external_url": external_url,
-        "attributes": attributes,
-        "properties": {
-            "files": [{"uri": image_url, "type": "image/png"}],
-            "category": "image"
+        # Solana getTransaction (jsonParsed) — confirmed or finalized
+        payload = {
+            "jsonrpc": "2.0",
+            "id": 1,
+            "method": "getTransaction",
+            "params": [sig, {"encoding": "jsonParsed", "maxSupportedTransactionVersion": 0}]
         }
-    }
+        req = urllib.request.Request(RPC_URL, data=json.dumps(payload).encode("utf-8"),
+                                     headers={"Content-Type": "application/json"})
+        with urllib.request.urlopen(req, timeout=20) as resp:
+            tx = json.loads(resp.read().decode("utf-8"))
 
-    try:
-        base = slugify(name)
-        fname = f"{base}-{secrets.token_urlsafe(6)}.json"
-        fpath = META_DIR / fname
-        with open(fpath, "w", encoding="utf-8") as f:
-            json.dump(meta, f, ensure_ascii=False, indent=2)
-        url = f"{host_base()}/static/meta/{fname}"
-        return jsonify({"ok": True, "url": url, "filename": fname, "meta": meta})
+        tx_result = (tx.get("result") or {})
+        if not tx_result:
+            return jsonify(ok=False, error="Transaction not found"), 404
+        if tx_result.get("meta", {}).get("err"):
+            return jsonify(ok=False, error="Transaction failed on-chain"), 400
+
+        # Look for a system transfer to our treasury >= min_lamports
+        message = tx_result.get("transaction", {}).get("message", {})
+        inst = message.get("instructions", [])
+        found = False
+        amt = 0
+        for ix in inst:
+            if ix.get("program") == "system" and ix.get("parsed", {}).get("type") == "transfer":
+                info = ix.get("parsed", {}).get("info", {})
+                if info.get("destination") == to_addr:
+                    amt = int(info.get("lamports", 0))
+                    if amt >= min_lamports:
+                        found = True
+                        break
+
+        return jsonify(ok=found, lamports=amt, to=to_addr, signature=sig)
+    except (HTTPError, URLError) as e:
+        return jsonify(ok=False, error=f"RPC error: {e}"), 502
     except Exception as e:
-        return jsonify({"ok": False, "error": str(e)}), 400
+        return jsonify(ok=False, error=str(e)), 500
 
-# -------------------------------------------------
-# Marketing generator (simple template-based)
-# -------------------------------------------------
-@app.route("/generate", methods=["POST"])
-def generate_copy():
-    data = request.get_json(force=True) or {}
-    token_name = (data.get("token_name") or "Your Meme Token").strip()
-    symbol = (data.get("symbol") or "MEME").strip().upper()
-    tier_sol = float(data.get("tier_sol") or 0.5)
-    schedule_iso = data.get("schedule_iso")
-    network = (data.get("network") or "devnet").strip()
+# -------------------------------
+# Front-desk AI (stubbed FAQ + lead capture)
+# Body: { "message": "..." , "email": "optional", "handle": "optional" }
+# -------------------------------
+FAQ = [
+    ("mint", "To mint: Connect Phantom → fill name/symbol/decimals/supply → click Create Mint. Start on devnet. After success, we’ll show your mint address and guide Step 2."),
+    ("renounce", "Renounce = permanently remove your authority. Only do this when you’re sure. Use Guardian to Check → Renounce Mint → Renounce Freeze."),
+    ("raydium", "After minting, head to Raydium to create a pool and add liquidity. We prefill your mint + decimals to reduce errors."),
+    ("fee", "Platform fee covers infra and support. Pay once per mint to unlock Create Mint. Receipts are verifiable on-chain."),
+    ("metadata", "Upload your image and JSON, then set the on-chain Metadata URI. We recommend permanent storage (Arweave/Bundlr) for trust.")
+]
+@app.route("/api/agent", methods=["POST"])
+def agent():
+    try:
+        data = request.get_json(force=True) or {}
+        msg = (data.get("message") or "").lower()
+        email = (data.get("email") or "").strip()
+        handle = (data.get("handle") or "").strip()
 
-    when = schedule_iso or "TBA"
-    hashtag = f"#{symbol}"
+        # rudimentary routing
+        answer = None
+        for key, val in FAQ:
+            if key in msg:
+                answer = val
+                break
+        if not answer:
+            answer = "I can help with mint, metadata, Raydium, fees, or renounce. Ask me anything or type 'mint help'."
 
-    tweet = (
-        f"{token_name} (${symbol}) launching on Solana {network}!\n"
-        f"Fair vibes. No presale. Community-first.\n"
-        f"Mint window: {when}\n"
-        f"Tier: {tier_sol} SOL  {hashtag} #Solana #memecoin\n"
-        f"Get prepped: {host_base()}/"
-    )
+        # here you could store leads to a file/db/CRM — we keep it simple:
+        if email or handle:
+            print(f"[LEAD] email={email} handle={handle} msg={msg}")
 
-    telegram = (
-        f"<b>{token_name} (${symbol})</b>\n"
-        f"Network: {network}\n"
-        f"Mint window: {when}\n"
-        f"Tier: {tier_sol} SOL\n"
-        f"Launch wizard: <a href='{host_base()}/'>{host_base()}/</a>"
-    )
+        return jsonify(ok=True, answer=answer)
+    except Exception as e:
+        return jsonify(ok=False, error=str(e)), 500
 
-    disc_embed = {
-        "title": f"{token_name} (${symbol}) — Launch",
-        "description": (
-            f"• Network: {network}\n"
-            f"• Mint: {when}\n"
-            f"• Tier: {tier_sol} SOL\n"
-            f"• Prep: {host_base()}/"
-        )
-    }
-
-    long_desc = (
-        f"{token_name} (${symbol}) is a community-first launch on Solana {network}. "
-        f"Transparent steps, open launch pack, and fair mechanics. "
-        f"No promise of profit—just memes, culture, and coordination."
-    )
-
-    return jsonify({
-        "ok": True,
-        "tweet": tweet,
-        "telegram_message": telegram,
-        "discord_embed": disc_embed,
-        "description": long_desc
-    })
-
-# -------------------------------------------------
-# Prelaunch microsite (returns static HTML string)
-# -------------------------------------------------
-@app.route("/prelaunch", methods=["POST"])
-def prelaunch():
-    data = request.get_json(force=True) or {}
-    name = (data.get("token_name") or "Your Meme Token").strip()
-    symbol = (data.get("symbol") or "MEME").strip().upper()
-    pitch = (data.get("pitch") or "Community-first fair launch on Solana.").strip()
-    mint_time = data.get("mint_time") or "TBA"
-    network = (data.get("network") or "devnet").strip()
-
-    html = f"""<!doctype html>
-<html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
-<title>{name} (${symbol}) — Prelaunch</title>
-<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/water.css@2/out/water.css">
-</head><body>
-  <h1>{name} (${symbol})</h1>
-  <p><b>Network:</b> {network}</p>
-  <p><b>Mint window:</b> {mint_time}</p>
-  <p>{pitch}</p>
-  <p>Wizard: <a href="{host_base()}/">{host_base()}/</a></p>
-</body></html>"""
-    return jsonify({"ok": True, "html": html})
-
-# -------------------------------------------------
-# Affiliate link (dummy generator)
-# -------------------------------------------------
-@app.route("/ref-link", methods=["POST"])
-def ref_link():
-    data = request.get_json(force=True) or {}
-    symbol = (data.get("symbol") or "MEME").strip().upper()
-    code = secrets.token_urlsafe(6)
-    # This is a simple demo link; you can later implement real tracking/redirect.
-    link = f"{host_base()}/?utm_source=ref&utm_code={code}&s={symbol}"
-    share = 0.15  # 15% as a demo
-    return jsonify({"ok": True, "code": code, "link": link, "share": share})
-
-# -------------------------------------------------
+# -------------------------------
 # Run
-# -------------------------------------------------
+# -------------------------------
 if __name__ == "__main__":
-    app.run(host="0.0.0.0", port=PORT)
+    print(f"[pump.coin] starting on http://127.0.0.1:{APP_PORT}  (RPC={RPC_URL})")
+    app.run(host=APP_HOST, port=APP_PORT)

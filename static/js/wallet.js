@@ -1,70 +1,50 @@
-<script>
-// static/js/wallet.js
-(function () {
+/* static/js/wallet.js */
+(() => {
   const $ = (s) => document.querySelector(s);
-  const statusEl = () => $("#wallet-status");
-  const connectBtn = () => $("#connect-phantom");
-  const disconnectBtn = () => $("#disconnect-phantom");
+  const statusEl = $('#wallet-status');
+  const btnEl = $('#connect-phantom');
 
-  function provider() {
-    return window.phantom?.solana || window.solana;
-  }
+  const setStatus = (txt) => { if (statusEl) statusEl.textContent = txt; };
 
-  async function setStatus(pubkey) {
-    if (statusEl()) {
-      if (pubkey) {
-        const s = pubkey.toBase58();
-        statusEl().textContent = `Wallet: ${s.slice(0, 4)}…${s.slice(-4)}`;
-      } else {
-        statusEl().textContent = "Wallet: not connected";
-      }
-    }
-    if (connectBtn()) connectBtn().style.display = pubkey ? "none" : "inline-block";
-    if (disconnectBtn()) disconnectBtn().style.display = pubkey ? "inline-block" : "none";
-  }
-
-  async function connectPhantom() {
-    const p = provider();
-    if (!p?.isPhantom) {
-      alert("Phantom not found. Install the Phantom extension, unlock it, then reload.");
+  async function connect() {
+    if (!window?.solana?.isPhantom) {
+      alert('Phantom wallet not found. Please install the Phantom browser extension.');
       return;
     }
     try {
-      const resp = await p.connect({ onlyIfTrusted: false });
-      await setStatus(resp.publicKey);
+      const resp = await window.solana.connect(); // will open Phantom prompt
+      const pk = resp.publicKey.toBase58();
+      setStatus(`Wallet: ${pk.slice(0,4)}…${pk.slice(-4)}`);
+      btnEl.textContent = 'Disconnect';
+      btnEl.onclick = disconnect;
     } catch (e) {
-      console.error("[wallet] connect error", e);
-      alert("Connect was rejected or failed.");
+      console.error('[wallet] connect error:', e);
+      setStatus('Wallet: not connected');
     }
   }
 
-  async function disconnectPhantom() {
-    try {
-      const p = provider();
-      if (p?.disconnect) await p.disconnect();
-    } finally {
-      await setStatus(null);
-    }
+  async function disconnect() {
+    try { await window.solana.disconnect(); } catch {}
+    setStatus('Wallet: not connected');
+    btnEl.textContent = 'Connect Phantom';
+    btnEl.onclick = connect;
   }
 
-  document.addEventListener("DOMContentLoaded", () => {
-    if (connectBtn()) connectBtn().addEventListener("click", connectPhantom);
-    if (disconnectBtn()) disconnectBtn().addEventListener("click", disconnectPhantom);
+  window.addEventListener('load', () => {
+    if (btnEl) btnEl.onclick = connect;
 
-    const p = provider();
-    if (p) {
-      p.on?.("connect", () => setStatus(p.publicKey));
-      p.on?.("disconnect", () => setStatus(null));
-      p.connect?.({ onlyIfTrusted: true })
-        .then(() => setStatus(p.publicKey))
-        .catch(() => setStatus(null));
-    } else {
-      setStatus(null);
+    if (window.solana) {
+      window.solana.on('connect', () => {
+        const pk = window.solana.publicKey?.toBase58?.() || '';
+        if (pk) {
+          setStatus(`Wallet: ${pk.slice(0,4)}…${pk.slice(-4)}`);
+          if (btnEl) { btnEl.textContent = 'Disconnect'; btnEl.onclick = disconnect; }
+        }
+      });
+      window.solana.on('disconnect', () => {
+        setStatus('Wallet: not connected');
+        if (btnEl) { btnEl.textContent = 'Connect Phantom'; btnEl.onclick = connect; }
+      });
     }
-    console.log("[wallet] ready on", location.pathname);
   });
-
-  // expose for quick debugging in DevTools
-  window.pumpcoin = { provider, connectPhantom, disconnectPhantom };
 })();
-</script>

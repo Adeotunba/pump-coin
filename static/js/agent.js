@@ -1,2 +1,2 @@
 // static/js/agent.js
-console.log("[agent] ready");
+console.log('[agent] ready');
