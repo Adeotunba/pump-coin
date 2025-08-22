@@ -1,64 +1,63 @@
 // static/js/wallet.js
 (function () {
-  function short(pk) {
-    const s = pk.toString();
-    return s.length > 10 ? `${s.slice(0, 4)}…${s.slice(-4)}` : s;
+  const $ = (s) => document.querySelector(s);
+  const statusEl = () => $("#wallet-status");
+  const connectBtn = () => $("#connect-phantom");
+  const disconnectBtn = () => $("#disconnect-phantom");
+
+  function shorten(pk) { return pk.slice(0, 4) + "…" + pk.slice(-4); }
+  function setConnected(pubkey) {
+    if (statusEl()) statusEl().textContent = `Wallet: ${shorten(pubkey)}`;
+    if (connectBtn()) connectBtn().classList.add("hidden");
+    if (disconnectBtn()) disconnectBtn().classList.remove("hidden");
+  }
+  function setDisconnected() {
+    if (statusEl()) statusEl().textContent = "Wallet: not connected";
+    if (connectBtn()) connectBtn().classList.remove("hidden");
+    if (disconnectBtn()) disconnectBtn().classList.add("hidden");
   }
 
-  function $(id) { return document.getElementById(id); }
-
-  document.addEventListener("DOMContentLoaded", () => {
-    const statusEl = $("wallet-status");
-    const connectBtn = $("connect-phantom");
-    const disconnectBtn = $("disconnect-phantom");
-
-    const phantom = window?.phantom?.solana;
-
-    function setDisconnected() {
-      if (statusEl) statusEl.textContent = "Wallet: not connected";
-      if (connectBtn) connectBtn.style.display = "inline-flex";
-      if (disconnectBtn) disconnectBtn.style.display = "none";
-    }
-
-    function setConnected(pubkey) {
-      if (statusEl) statusEl.textContent = `Wallet: ${short(pubkey)}`;
-      if (connectBtn) connectBtn.style.display = "none";
-      if (disconnectBtn) disconnectBtn.style.display = "inline-flex";
-    }
-
-    async function connect() {
-      if (!phantom || !phantom.isPhantom) {
-        window.open("https://phantom.app/download", "_blank");
-        return;
+  async function init() {
+    // On GitHub Pages, ensure relative links resolve under /pump-coin/
+    try {
+      const isGh = location.hostname.endsWith("github.io");
+      if (isGh) {
+        const base = document.createElement("base");
+        base.href = "/pump-coin/";
+        document.head.prepend(base);
       }
-      try {
-        const { publicKey } = await phantom.connect({ onlyIfTrusted: false });
-        setConnected(publicKey);
-      } catch (e) {
-        console.warn("connect cancelled/failed:", e);
+    } catch {}
+
+    const provider = window.solana || (window.phantom && window.phantom.solana);
+    if (!provider || !provider.isPhantom) {
+      if (statusEl()) statusEl().textContent = "Install Phantom to continue";
+      if (connectBtn()) {
+        connectBtn().textContent = "Install Phantom";
+        connectBtn().onclick = () => window.open("https://phantom.app/", "_blank");
       }
+      return;
     }
 
-    async function disconnect() {
-      try { await phantom?.disconnect?.(); } catch {}
-      setDisconnected();
-    }
+    provider.on("connect", () => setConnected(provider.publicKey.toBase58()));
+    provider.on("disconnect", () => setDisconnected());
 
-    // Wire buttons
-    connectBtn?.addEventListener("click", connect);
-    disconnectBtn?.addEventListener("click", disconnect);
+    // Try silent reconnect if user already approved on this origin
+    try { await provider.connect({ onlyIfTrusted: true }); } catch {}
+    if (provider.publicKey) setConnected(provider.publicKey.toBase58());
+    else setDisconnected();
 
-    // Listen to Phantom events
-    if (phantom) {
-      phantom.on?.("connect", (pk) => setConnected(pk));
-      phantom.on?.("disconnect", setDisconnected);
-      if (phantom.isConnected && phantom.publicKey) {
-        setConnected(phantom.publicKey);
-      } else {
-        setDisconnected();
-      }
-    } else {
-      setDisconnected();
+    if (connectBtn()) {
+      connectBtn().onclick = async () => {
+        try { await provider.connect(); }
+        catch (e) { console.warn("Connect rejected", e); }
+      };
     }
-  });
+    if (disconnectBtn()) {
+      disconnectBtn().onclick = async () => {
+        try { await provider.disconnect(); } catch {}
+      };
+    }
+  }
+
+  document.addEventListener("DOMContentLoaded", init);
 })();
