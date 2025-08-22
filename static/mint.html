@@ -3,213 +3,84 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>pump.coin — Mint</title>
+  <title>pump.coin — Mint (Devnet)</title>
   <style>
-    body { background:#0b1220; color:#e5e7eb; font-family:system-ui,Segoe UI,Roboto,Arial; margin:0; }
-    a { color:#93c5fd; text-decoration:none; }
-    .shell { max-width:1100px; margin:0 auto; padding:24px; }
-    .bar { display:flex; gap:16px; align-items:center; justify-content:space-between; }
-    .brand { font-size:22px; font-weight:700; letter-spacing:.3px; }
-    .btn { background:#1f2937; border:1px solid #374151; color:#e5e7eb; padding:10px 14px; border-radius:10px; cursor:pointer; }
-    .btn:disabled { opacity:.6; cursor:not-allowed; }
-    .pill { padding:8px 10px; border:1px solid #374151; border-radius:10px; font-size:14px; color:#9ca3af; }
-    .grid { display:grid; gap:14px; grid-template-columns:1fr 1fr; }
-    .card { margin-top:28px; background:#0f172a; border:1px solid #1e293b; border-radius:16px; padding:22px; }
-    input, select { width:100%; background:#0b1220; color:#e5e7eb; border:1px solid #1e293b; border-radius:10px; padding:10px; }
-    label { font-size:14px; color:#9ca3af; }
+    body{margin:0;background:#0b1220;color:#e8eefc;font:16px/1.5 system-ui,Segoe UI,Roboto,Arial}
+    .wrap{max-width:1080px;margin:0 auto;padding:24px}
+    header{display:flex;align-items:center;gap:16px;justify-content:space-between}
+    .brand{font-weight:700;font-size:24px}
+    .chip{background:#0f1a2b;color:#bcd0ff;border:1px solid #1b2a44;border-radius:10px;padding:6px 10px}
+    .btn{background:#163663;color:#d9e6ff;border:1px solid #2b4a80;border-radius:10px;padding:8px 14px;cursor:pointer}
+    .card{background:#0e1728;border:1px solid #1b2a44;border-radius:14px;padding:24px;margin-top:24px}
+    input{background:#0f1a2b;border:1px solid #1b2a44;border-radius:10px;color:#e8eefc;padding:10px;width:100%}
+    label{display:block;margin:16px 0 6px}
+    #disconnect-phantom{display:none}
+    .row{display:flex;gap:16px;align-items:flex-end}
+    .row > div{flex:1}
   </style>
 </head>
 <body>
-  <div class="shell">
-    <div class="bar">
-      <div class="row" style="display:flex; gap:14px; align-items:center;">
-        <div class="brand">pump.coin</div>
-        <div class="pill">devnet</div>
+  <div class="wrap">
+    <header>
+      <div class="brand"><a href="index.html" style="color:inherit;text-decoration:none">pump.coin</a></div>
+      <div style="display:flex;gap:12px;align-items:center">
+        <span class="chip">devnet</span>
+        <span id="wallet-status" class="chip">Wallet: not connected</span>
+        <button id="connect-phantom" class="btn">Connect Phantom</button>
+        <button id="disconnect-phantom" class="btn" type="button">Disconnect</button>
       </div>
-      <div class="row" style="display:flex; gap:10px; align-items:center;">
-        <span id="wallet-status">Wallet: not connected</span>
-        <button id="connect-phantom" class="btn" type="button">Connect Phantom</button>
-      </div>
-    </div>
+    </header>
 
-    <div class="card">
+    <main class="card">
       <h2>Step 1 — Mint Token (Devnet)</h2>
-      <p>Creates an SPL token and mints full supply to your wallet’s ATA. <b>Devnet only</b> for now.</p>
+      <p>Creates an SPL token and mints full supply to your wallet’s ATA. <strong>Devnet only</strong>.</p>
 
-      <div class="grid">
+      <div class="row">
         <div>
           <label>Decimals</label>
-          <input id="decimals" value="6" />
+          <input id="decimals" type="number" value="6" min="0" max="9" />
         </div>
         <div>
           <label>Total Supply (tokens)</label>
-          <input id="supply" value="1000000000" />
+          <input id="supply" type="text" value="1000000000" />
         </div>
       </div>
 
-      <div style="margin-top:16px; display:flex; gap:10px; align-items:center; flex-wrap:wrap;">
-        <button id="create-devnet" class="btn" type="button" disabled>Create Token (Devnet)</button>
-        <span id="mint-address">Mint Address: —</span>
+      <div style="margin-top:16px;display:flex;gap:10px;align-items:center">
+        <button id="create-token" class="btn" disabled>Create Token (Devnet)</button>
+        <span id="mint-address" class="chip">Mint Address: —</span>
       </div>
 
-      <p style="margin-top:18px;"><a href="/">← Back home</a></p>
-    </div>
+      <p style="margin-top:18px"><a href="raydium.html" class="btn">Next → Raydium</a></p>
+      <p><a href="index.html" class="btn" style="background:#0f1a2b">← Back home</a></p>
+    </main>
   </div>
 
-  <!-- harmless agent -->
-  <script defer src="/static/js/agent.js"></script>
-  <!-- Phantom connect logic -->
-  <script defer src="/static/js/wallet.js"></script>
+  <!-- Scripts must be relative for GitHub Pages -->
+  <script src="static/js/agent.js"></script>
+  <script src="static/js/wallet.js"></script>
 
-  <!-- On-chain mint logic -->
-  <script type="module">
-    import {
-      Connection, clusterApiUrl, PublicKey, Keypair,
-      SystemProgram, Transaction
-    } from "https://esm.sh/@solana/web3.js@1.95.3";
+  <script>
+    // For now on Pages: enable button only when a wallet is connected,
+    // and show a friendly message. (On localhost you can wire real devnet mint.)
+    document.addEventListener("DOMContentLoaded", () => {
+      const btn = document.getElementById("create-token");
+      const statusEl = document.getElementById("wallet-status");
+      const mintAddr = document.getElementById("mint-address");
 
-    import {
-      MINT_SIZE, TOKEN_PROGRAM_ID, ASSOCIATED_TOKEN_PROGRAM_ID,
-      getAssociatedTokenAddress,
-      createAssociatedTokenAccountInstruction,
-      createInitializeMint2Instruction,
-      createMintToInstruction
-    } from "https://esm.sh/@solana/spl-token@0.4.6";
+      // Observe status text (set by wallet.js) to toggle the button
+      const obs = new MutationObserver(() => {
+        const connected = (statusEl.textContent || "").includes("Wallet: ") && !statusEl.textContent.includes("not connected");
+        btn.disabled = !connected;
+      });
+      obs.observe(statusEl, { childList: true });
 
-    const conn = new Connection(clusterApiUrl("devnet"), "confirmed");
-
-    const $ = (s) => document.querySelector(s);
-    const btnMint = $("#create-devnet");
-    const btnConnect = $("#connect-phantom");
-    const mintAddrSpan = $("#mint-address");
-
-    // Enable/disable mint button based on connect state
-    function syncMintBtn() {
-      btnMint.disabled = !btnConnect.dataset.connected;
-    }
-    document.addEventListener("DOMContentLoaded", syncMintBtn);
-    btnConnect.addEventListener("click", () => setTimeout(syncMintBtn, 250));
-
-    function short(pk) { return pk.slice(0,4) + "…" + pk.slice(-4); }
-
-    async function ensureAirdropIfLow(pubkey) {
-      try {
-        const bal = await conn.getBalance(pubkey);
-        if (bal < 0.05 * 1e9) {
-          const sig = await conn.requestAirdrop(pubkey, 1e9); // 1 SOL
-          await conn.confirmTransaction(sig, "confirmed");
-        }
-      } catch (e) {
-        console.log("[airdrop] skipped:", e?.message || e);
-      }
-    }
-
-    async function createTokenDevnet() {
-      if (!window.solana?.publicKey) {
-        alert("Please connect Phantom first.");
-        return;
-      }
-
-      // Read inputs
-      const decimals = parseInt($("#decimals").value || "6", 10);
-      const supplyStr = ($("#supply").value || "0").trim();
-      if (isNaN(decimals) || decimals < 0 || decimals > 9) {
-        alert("Decimals must be in range 0..9");
-        return;
-      }
-      if (!/^\d+$/.test(supplyStr)) {
-        alert("Total supply must be a whole number (no commas or dots).");
-        return;
-      }
-      const supply = BigInt(supplyStr);
-      const amount = supply * (10n ** BigInt(decimals));
-
-      btnMint.disabled = true;
-      const origLabel = btnMint.textContent;
-      btnMint.textContent = "Creating mint…";
-
-      try {
-        const owner = window.solana.publicKey;
-        await ensureAirdropIfLow(owner);
-
-        // new mint account (we hold this keypair in-page)
-        const mintKp = Keypair.generate();
-
-        // build instructions
-        const lamports = await conn.getMinimumBalanceForRentExemption(MINT_SIZE);
-
-        const createMintIx = SystemProgram.createAccount({
-          fromPubkey: owner,
-          newAccountPubkey: mintKp.publicKey,
-          space: MINT_SIZE,
-          lamports,
-          programId: TOKEN_PROGRAM_ID,
-        });
-
-        const initMintIx = createInitializeMint2Instruction(
-          mintKp.publicKey,
-          decimals,
-          owner,   // mint authority
-          owner,   // freeze authority
-          TOKEN_PROGRAM_ID
-        );
-
-        // ATA for the owner
-        const ata = await getAssociatedTokenAddress(
-          mintKp.publicKey,
-          owner,
-          false,
-          TOKEN_PROGRAM_ID,
-          ASSOCIATED_TOKEN_PROGRAM_ID
-        );
-
-        // Create ATA if missing
-        const ataInfo = await conn.getAccountInfo(ata);
-        const ixs = [createMintIx, initMintIx];
-        if (!ataInfo) {
-          ixs.push(
-            createAssociatedTokenAccountInstruction(
-              owner, ata, owner, mintKp.publicKey,
-              TOKEN_PROGRAM_ID, ASSOCIATED_TOKEN_PROGRAM_ID
-            )
-          );
-        }
-
-        // Mint full supply to ATA
-        ixs.push(
-          createMintToInstruction(
-            mintKp.publicKey, ata, owner, amount, [],
-            TOKEN_PROGRAM_ID
-          )
-        );
-
-        const tx = new Transaction().add(...ixs);
-        tx.feePayer = owner;
-        tx.recentBlockhash = (await conn.getLatestBlockhash()).blockhash;
-
-        // We must sign as the mint account creator
-        tx.partialSign(mintKp);
-
-        // Ask Phantom to add the wallet signature & send
-        const res = await window.solana.signAndSendTransaction(tx);
-        const sig = (typeof res === "string") ? res : (res.signature || res?.sig);
-        await conn.confirmTransaction(sig, "confirmed");
-
-        // Show success + link
-        const mintStr = mintKp.publicKey.toBase58();
-        const url = `https://explorer.solana.com/address/${mintStr}?cluster=devnet`;
-        mintAddrSpan.innerHTML = `Mint Address: <a href="${url}" target="_blank" rel="noopener">${mintStr}</a>`;
-        btnMint.textContent = "Done ✓";
-      } catch (e) {
-        console.error(e);
-        alert("Mint failed: " + (e?.message || e));
-        btnMint.textContent = origLabel;
-      } finally {
-        btnMint.disabled = false;
-      }
-    }
-
-    btnMint.addEventListener("click", createTokenDevnet);
+      btn.addEventListener("click", () => {
+        alert("Devnet mint from the browser is disabled on GitHub Pages. Use your local app to mint, then return here.");
+        // If you want, you can open your local app automatically:
+        // window.open('http://127.0.0.1:5000/mint','_blank');
+      });
+    });
   </script>
 </body>
 </html>

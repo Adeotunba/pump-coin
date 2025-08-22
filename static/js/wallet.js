@@ -1,67 +1,64 @@
 // static/js/wallet.js
-(() => {
-  const $ = (s) => document.querySelector(s);
-  const statusEl = () => $('#wallet-status');
-  const btnEl = () => $('#connect-phantom');
-
-  const setStatus = (t) => { if (statusEl()) statusEl().textContent = t; };
-  const setBtn = (t, dis=false) => { if (btnEl()) { btnEl().textContent = t; btnEl().disabled = dis; } };
-
-  function short(pk) { return pk ? pk.slice(0,4) + "…" + pk.slice(-4) : ""; }
-
-  async function connectPhantom() {
-    const p = window.solana;
-    if (!p || !p.isPhantom) {
-      setStatus("Phantom not found");
-      window.open("https://phantom.app/download", "_blank", "noopener");
-      return;
-    }
-    try {
-      setBtn("Connecting…", true);
-      const { publicKey } = await p.connect({ onlyIfTrusted: false });
-      const pk = publicKey?.toBase58?.();
-      setStatus("Wallet: " + short(pk));
-      setBtn("Disconnect");
-      btnEl().dataset.connected = "1";
-    } catch (e) {
-      console.log("[wallet] connect error:", e);
-      setBtn("Connect Phantom");
-    } finally {
-      setBtn(btnEl().dataset.connected ? "Disconnect" : "Connect Phantom");
-    }
+(function () {
+  function short(pk) {
+    const s = pk.toString();
+    return s.length > 10 ? `${s.slice(0, 4)}…${s.slice(-4)}` : s;
   }
 
-  function disconnectPhantom() {
-    try { window.solana?.disconnect?.(); } catch(e){}
-    setStatus("Wallet: not connected");
-    setBtn("Connect Phantom");
-    if (btnEl()) btnEl().dataset.connected = "";
-  }
+  function $(id) { return document.getElementById(id); }
 
-  window.addEventListener("DOMContentLoaded", () => {
-    if (!btnEl()) { console.log("[wallet] button missing"); return; }
-    setStatus("Wallet: not connected");
-    setBtn("Connect Phantom");
+  document.addEventListener("DOMContentLoaded", () => {
+    const statusEl = $("wallet-status");
+    const connectBtn = $("connect-phantom");
+    const disconnectBtn = $("disconnect-phantom");
 
-    btnEl().addEventListener("click", () => {
-      if (btnEl().dataset.connected) disconnectPhantom();
-      else connectPhantom();
-    });
+    const phantom = window?.phantom?.solana;
 
-    if (window.solana?.isPhantom) {
-      window.solana.on?.("disconnect", () => disconnectPhantom());
-      window.solana.connect({ onlyIfTrusted: true })
-        .then(({ publicKey }) => {
-          const pk = publicKey?.toBase58?.();
-          if (pk) {
-            setStatus("Wallet: " + short(pk));
-            btnEl().dataset.connected = "1";
-            setBtn("Disconnect");
-          }
-        })
-        .catch(() => {});
+    function setDisconnected() {
+      if (statusEl) statusEl.textContent = "Wallet: not connected";
+      if (connectBtn) connectBtn.style.display = "inline-flex";
+      if (disconnectBtn) disconnectBtn.style.display = "none";
+    }
+
+    function setConnected(pubkey) {
+      if (statusEl) statusEl.textContent = `Wallet: ${short(pubkey)}`;
+      if (connectBtn) connectBtn.style.display = "none";
+      if (disconnectBtn) disconnectBtn.style.display = "inline-flex";
+    }
+
+    async function connect() {
+      if (!phantom || !phantom.isPhantom) {
+        window.open("https://phantom.app/download", "_blank");
+        return;
+      }
+      try {
+        const { publicKey } = await phantom.connect({ onlyIfTrusted: false });
+        setConnected(publicKey);
+      } catch (e) {
+        console.warn("connect cancelled/failed:", e);
+      }
+    }
+
+    async function disconnect() {
+      try { await phantom?.disconnect?.(); } catch {}
+      setDisconnected();
+    }
+
+    // Wire buttons
+    connectBtn?.addEventListener("click", connect);
+    disconnectBtn?.addEventListener("click", disconnect);
+
+    // Listen to Phantom events
+    if (phantom) {
+      phantom.on?.("connect", (pk) => setConnected(pk));
+      phantom.on?.("disconnect", setDisconnected);
+      if (phantom.isConnected && phantom.publicKey) {
+        setConnected(phantom.publicKey);
+      } else {
+        setDisconnected();
+      }
     } else {
-      console.log("[wallet] Phantom not injected");
+      setDisconnected();
     }
   });
 })();
