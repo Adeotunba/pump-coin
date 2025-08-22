@@ -2,249 +2,214 @@
 <html lang="en">
 <head>
   <meta charset="utf-8" />
-  <title>pump.coin — Mint Wizard</title>
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>pump.coin — Mint</title>
   <style>
-    :root { color-scheme: dark; }
-    body { margin:0; font:16px system-ui, -apple-system, Segoe UI, Roboto, Arial; background:#0b0f1a; color:#e6edf3; }
-    a { color:#a6e3ff; text-decoration:none; }
-    a:hover { text-decoration:underline; }
-    .nav { display:flex; gap:12px; align-items:center; padding:14px 18px; border-bottom:1px solid #1e2538; background:#0b0f1a; position:sticky; top:0; }
-    .brand { font-weight:700; letter-spacing:.4px; }
-    .spacer { flex:1; }
-    .btn { padding:10px 14px; border:1px solid #29314b; border-radius:12px; background:#12182a; color:#e6edf3; }
-    .btn:hover { background:#171e34; }
-    .wrap { max-width:1080px; margin:0 auto; padding:28px 18px 90px; }
-    .steps { display:grid; grid-template-columns: repeat(5, 1fr); gap:10px; margin-bottom:22px; }
-    .step { border:1px solid #1e2538; background:#0e1324; border-radius:14px; padding:12px; min-height:78px; }
-    .step.active { border-color:#62ffc8; box-shadow:0 0 0 1px #62ffc844 inset; }
-    .muted { color:#9fb0c3; }
-    .card { border:1px solid #1e2538; background:#0e1324; border-radius:16px; padding:22px; margin-top:16px; }
-    .grid { display:grid; gap:12px; }
-    .grid3 { grid-template-columns: repeat(3, 1fr); }
-    input[type="text"], input[type="number"] {
-      width:100%; padding:12px 14px; border-radius:12px; border:1px solid #28304a; background:#0c1225; color:#e6edf3;
-    }
-    label { font-size:14px; color:#aab9cc; display:block; margin-bottom:6px; }
-    .row { display:flex; gap:12px; align-items:center; flex-wrap:wrap; }
-    .mono { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; }
+    body { background:#0b1220; color:#e5e7eb; font-family:system-ui,Segoe UI,Roboto,Arial; margin:0; }
+    a { color:#93c5fd; text-decoration:none; }
+    .shell { max-width:1100px; margin:0 auto; padding:24px; }
+    .bar { display:flex; gap:16px; align-items:center; justify-content:space-between; }
+    .brand { font-size:22px; font-weight:700; letter-spacing:.3px; }
+    .btn { background:#1f2937; border:1px solid #374151; color:#e5e7eb; padding:10px 14px; border-radius:10px; cursor:pointer; }
+    .btn:disabled { opacity:.6; cursor:not-allowed; }
+    .pill { padding:8px 10px; border:1px solid #374151; border-radius:10px; font-size:14px; color:#9ca3af; }
+    .grid { display:grid; gap:14px; grid-template-columns:1fr 1fr; }
+    .card { margin-top:28px; background:#0f172a; border:1px solid #1e293b; border-radius:16px; padding:22px; }
+    input, select { width:100%; background:#0b1220; color:#e5e7eb; border:1px solid #1e293b; border-radius:10px; padding:10px; }
+    label { font-size:14px; color:#9ca3af; }
   </style>
 </head>
 <body>
-  <!-- NAV -->
-  <div class="nav">
-    <div class="brand">pump.coin</div>
-    <a class="btn" href="/">Home</a>
-    <a class="btn" href="/raydium">Raydium</a>
-    <div class="spacer"></div>
-    <button id="walletBtn" class="btn">Connect Phantom</button>
-  </div>
-
-  <div class="wrap">
-    <!-- STEP HEADERS -->
-    <div class="steps">
-      <div id="s1" class="step active"><b>STEP 1</b><br><span class="muted">Mint Token</span></div>
-      <div id="s2" class="step"><b>STEP 2</b><br><span class="muted">Metadata & Logo</span></div>
-      <div id="s3" class="step"><b>STEP 3</b><br><span class="muted">Security</span></div>
-      <div id="s4" class="step"><b>STEP 4</b><br><span class="muted">Raydium Plan</span></div>
-      <div id="s5" class="step"><b>STEP 5</b><br><span class="muted">Marketing & Pack</span></div>
+  <div class="shell">
+    <div class="bar">
+      <div class="row" style="display:flex; gap:14px; align-items:center;">
+        <div class="brand">pump.coin</div>
+        <div class="pill">devnet</div>
+      </div>
+      <div class="row" style="display:flex; gap:10px; align-items:center;">
+        <span id="wallet-status">Wallet: not connected</span>
+        <button id="connect-phantom" class="btn" type="button">Connect Phantom</button>
+      </div>
     </div>
 
-    <!-- STEP 1 -->
-    <div id="step1" class="card">
-      <h2>Step 1 — Create SPL Token</h2>
-      <p class="muted">Devnet only inside the app (safe for testing). After mint, you’ll jump to Step 2.</p>
+    <div class="card">
+      <h2>Step 1 — Mint Token (Devnet)</h2>
+      <p>Creates an SPL token and mints full supply to your wallet’s ATA. <b>Devnet only</b> for now.</p>
 
-      <div class="grid grid3">
+      <div class="grid">
         <div>
           <label>Decimals</label>
-          <input id="m_decimals" type="number" value="6" min="0" max="9" />
+          <input id="decimals" value="6" />
         </div>
         <div>
           <label>Total Supply (tokens)</label>
-          <input id="m_supply" type="number" value="1000000000" />
-        </div>
-        <div>
-          <label>Mint to (your ATA)</label>
-          <input type="text" value="auto = your wallet" disabled />
+          <input id="supply" value="1000000000" />
         </div>
       </div>
 
-      <div class="row" style="margin-top:14px;">
-        <button id="btnMintDevnet" class="btn">Create Token (Devnet)</button>
-        <a href="#" id="skipTo2" class="btn">Already minted? Go to Step 2</a>
+      <div style="margin-top:16px; display:flex; gap:10px; align-items:center; flex-wrap:wrap;">
+        <button id="create-devnet" class="btn" type="button" disabled>Create Token (Devnet)</button>
+        <span id="mint-address">Mint Address: —</span>
       </div>
 
-      <p id="mintStatus" class="muted mono" style="margin-top:10px;">Status: idle</p>
-      <p id="mintOut" class="mono"></p>
-    </div>
-
-    <!-- STEP 2 -->
-    <div id="step2" class="card" style="display:none;">
-      <h2>Step 2 — Metadata & Logo</h2>
-      <div class="grid">
-        <div>
-          <label>Mint Address</label>
-          <input id="md_mint" type="text" placeholder="Paste mint address" />
-        </div>
-        <div>
-          <label>Name</label>
-          <input id="md_name" type="text" placeholder="Your Meme Token" />
-        </div>
-        <div>
-          <label>Symbol</label>
-          <input id="md_symbol" type="text" placeholder="MEME" />
-        </div>
-        <div>
-          <label>Description</label>
-          <input id="md_desc" type="text" placeholder="Short description for wallets/explorers" />
-        </div>
-        <div>
-          <label>External URL (optional)</label>
-          <input id="md_url" type="text" placeholder="https://yoursite.xyz" />
-        </div>
-      </div>
-
-      <div class="row" style="margin-top:14px;">
-        <button id="btnSaveMeta" class="btn">Save Metadata JSON</button>
-        <button id="toStep3" class="btn">Next → Security</button>
-      </div>
-      <p id="metaStatus" class="muted mono" style="margin-top:10px;">Status: fill the form then save.</p>
-    </div>
-
-    <!-- STEP 3 -->
-    <div id="step3" class="card" style="display:none;">
-      <h2>Step 3 — Security</h2>
-      <p class="muted">Checklist only (no chain tx here yet). Freeze/renounce once you’re ready.</p>
-      <div class="grid">
-        <div>
-          <label>Mint Address</label>
-          <input id="sec_mint" type="text" placeholder="Paste mint address" />
-        </div>
-      </div>
-      <ul>
-        <li>✅ Freeze authority planned</li>
-        <li>✅ Mint authority renounced</li>
-        <li>✅ Liquidity burned after launch</li>
-      </ul>
-      <div class="row" style="margin-top:14px;">
-        <button id="toStep4" class="btn">Next → Raydium</button>
-      </div>
-    </div>
-
-    <!-- STEP 4 -->
-    <div id="step4" class="card" style="display:none;">
-      <h2>Step 4 — Raydium Plan</h2>
-      <div class="grid">
-        <div>
-          <label>Mint Address</label>
-          <input id="ry_mint" type="text" placeholder="Paste mint address" />
-        </div>
-      </div>
-      <p class="muted">We’ll pre-fill this on the Raydium page.</p>
-      <div class="row" style="margin-top:14px;">
-        <a id="toRaydium" class="btn" href="/raydium">Open Raydium Page</a>
-        <button id="toStep5" class="btn">Next → Marketing</button>
-      </div>
-    </div>
-
-    <!-- STEP 5 -->
-    <div id="step5" class="card" style="display:none;">
-      <h2>Step 5 — Marketing & Pack</h2>
-      <p class="muted">Generate content + export a launch ZIP.</p>
-      <div class="row" style="margin-top:14px;">
-        <button class="btn" onclick="alert('Coming soon: Launch Pack ZIP');">Build Launch Pack</button>
-      </div>
+      <p style="margin-top:18px;"><a href="/">← Back home</a></p>
     </div>
   </div>
 
-  <!-- Phantom connect (same helper as index) -->
-  <script>
-    function short(pk) { return pk.slice(0,4)+'…'+pk.slice(-4); }
+  <!-- harmless agent -->
+  <script defer src="/static/js/agent.js"></script>
+  <!-- Phantom connect logic -->
+  <script defer src="/static/js/wallet.js"></script>
 
-    async function connectPhantom() {
+  <!-- On-chain mint logic -->
+  <script type="module">
+    import {
+      Connection, clusterApiUrl, PublicKey, Keypair,
+      SystemProgram, Transaction
+    } from "https://esm.sh/@solana/web3.js@1.95.3";
+
+    import {
+      MINT_SIZE, TOKEN_PROGRAM_ID, ASSOCIATED_TOKEN_PROGRAM_ID,
+      getAssociatedTokenAddress,
+      createAssociatedTokenAccountInstruction,
+      createInitializeMint2Instruction,
+      createMintToInstruction
+    } from "https://esm.sh/@solana/spl-token@0.4.6";
+
+    const conn = new Connection(clusterApiUrl("devnet"), "confirmed");
+
+    const $ = (s) => document.querySelector(s);
+    const btnMint = $("#create-devnet");
+    const btnConnect = $("#connect-phantom");
+    const mintAddrSpan = $("#mint-address");
+
+    // Enable/disable mint button based on connect state
+    function syncMintBtn() {
+      btnMint.disabled = !btnConnect.dataset.connected;
+    }
+    document.addEventListener("DOMContentLoaded", syncMintBtn);
+    btnConnect.addEventListener("click", () => setTimeout(syncMintBtn, 250));
+
+    function short(pk) { return pk.slice(0,4) + "…" + pk.slice(-4); }
+
+    async function ensureAirdropIfLow(pubkey) {
       try {
-        if (!window.solana || !window.solana.isPhantom) {
-          alert("Phantom not found. Please install the Phantom extension.");
-          window.open("https://phantom.app/", "_blank");
-          return;
+        const bal = await conn.getBalance(pubkey);
+        if (bal < 0.05 * 1e9) {
+          const sig = await conn.requestAirdrop(pubkey, 1e9); // 1 SOL
+          await conn.confirmTransaction(sig, "confirmed");
         }
-        const resp = await window.solana.connect({ onlyIfTrusted:false });
-        const pubkey = resp.publicKey.toString();
-        document.getElementById("walletBtn").textContent = short(pubkey);
-        localStorage.setItem("walletPubkey", pubkey);
-      } catch (err) {
-        console.error(err);
+      } catch (e) {
+        console.log("[airdrop] skipped:", e?.message || e);
       }
     }
-    function autoConnectIfTrusted(){
-      if (window.solana?.isPhantom) {
-        window.solana.connect({ onlyIfTrusted:true }).then(r=>{
-          if (r?.publicKey) {
-            document.getElementById("walletBtn").textContent = short(r.publicKey.toString());
-          }
-        }).catch(()=>{});
-        window.solana.on("accountChanged", (pk)=>{
-          document.getElementById("walletBtn").textContent = pk ? short(pk.toString()) : "Connect Phantom";
+
+    async function createTokenDevnet() {
+      if (!window.solana?.publicKey) {
+        alert("Please connect Phantom first.");
+        return;
+      }
+
+      // Read inputs
+      const decimals = parseInt($("#decimals").value || "6", 10);
+      const supplyStr = ($("#supply").value || "0").trim();
+      if (isNaN(decimals) || decimals < 0 || decimals > 9) {
+        alert("Decimals must be in range 0..9");
+        return;
+      }
+      if (!/^\d+$/.test(supplyStr)) {
+        alert("Total supply must be a whole number (no commas or dots).");
+        return;
+      }
+      const supply = BigInt(supplyStr);
+      const amount = supply * (10n ** BigInt(decimals));
+
+      btnMint.disabled = true;
+      const origLabel = btnMint.textContent;
+      btnMint.textContent = "Creating mint…";
+
+      try {
+        const owner = window.solana.publicKey;
+        await ensureAirdropIfLow(owner);
+
+        // new mint account (we hold this keypair in-page)
+        const mintKp = Keypair.generate();
+
+        // build instructions
+        const lamports = await conn.getMinimumBalanceForRentExemption(MINT_SIZE);
+
+        const createMintIx = SystemProgram.createAccount({
+          fromPubkey: owner,
+          newAccountPubkey: mintKp.publicKey,
+          space: MINT_SIZE,
+          lamports,
+          programId: TOKEN_PROGRAM_ID,
         });
+
+        const initMintIx = createInitializeMint2Instruction(
+          mintKp.publicKey,
+          decimals,
+          owner,   // mint authority
+          owner,   // freeze authority
+          TOKEN_PROGRAM_ID
+        );
+
+        // ATA for the owner
+        const ata = await getAssociatedTokenAddress(
+          mintKp.publicKey,
+          owner,
+          false,
+          TOKEN_PROGRAM_ID,
+          ASSOCIATED_TOKEN_PROGRAM_ID
+        );
+
+        // Create ATA if missing
+        const ataInfo = await conn.getAccountInfo(ata);
+        const ixs = [createMintIx, initMintIx];
+        if (!ataInfo) {
+          ixs.push(
+            createAssociatedTokenAccountInstruction(
+              owner, ata, owner, mintKp.publicKey,
+              TOKEN_PROGRAM_ID, ASSOCIATED_TOKEN_PROGRAM_ID
+            )
+          );
+        }
+
+        // Mint full supply to ATA
+        ixs.push(
+          createMintToInstruction(
+            mintKp.publicKey, ata, owner, amount, [],
+            TOKEN_PROGRAM_ID
+          )
+        );
+
+        const tx = new Transaction().add(...ixs);
+        tx.feePayer = owner;
+        tx.recentBlockhash = (await conn.getLatestBlockhash()).blockhash;
+
+        // We must sign as the mint account creator
+        tx.partialSign(mintKp);
+
+        // Ask Phantom to add the wallet signature & send
+        const res = await window.solana.signAndSendTransaction(tx);
+        const sig = (typeof res === "string") ? res : (res.signature || res?.sig);
+        await conn.confirmTransaction(sig, "confirmed");
+
+        // Show success + link
+        const mintStr = mintKp.publicKey.toBase58();
+        const url = `https://explorer.solana.com/address/${mintStr}?cluster=devnet`;
+        mintAddrSpan.innerHTML = `Mint Address: <a href="${url}" target="_blank" rel="noopener">${mintStr}</a>`;
+        btnMint.textContent = "Done ✓";
+      } catch (e) {
+        console.error(e);
+        alert("Mint failed: " + (e?.message || e));
+        btnMint.textContent = origLabel;
+      } finally {
+        btnMint.disabled = false;
       }
     }
-    document.getElementById("walletBtn").addEventListener("click", connectPhantom);
-    window.addEventListener("load", autoConnectIfTrusted);
+
+    btnMint.addEventListener("click", createTokenDevnet);
   </script>
-
-  <!-- Wizard logic (no on-chain calls here; safe & simple) -->
-  <script>
-    // step helpers
-    function setStep(n){
-      for (let i=1;i<=5;i++){
-        document.getElementById("step"+i).style.display = (i===n) ? "block" : "none";
-        document.getElementById("s"+i).classList.toggle("active", i===n);
-      }
-      window.scrollTo({top:0, behavior:"smooth"});
-    }
-
-    // buttons
-    document.getElementById("skipTo2").addEventListener("click", (e)=>{ e.preventDefault(); setStep(2); });
-    document.getElementById("toStep3").addEventListener("click", ()=> setStep(3));
-    document.getElementById("toStep4").addEventListener("click", ()=> setStep(4));
-    document.getElementById("toStep5").addEventListener("click", ()=> setStep(5));
-
-    // fake/dev mint action (you can wire real chain calls later)
-    document.getElementById("btnMintDevnet").addEventListener("click", async ()=>{
-      const pub = localStorage.getItem("walletPubkey");
-      if (!pub) { alert("Connect Phantom first."); return; }
-      const status = document.getElementById("mintStatus");
-      status.textContent = "Status: minting on devnet (simulated)…";
-      // simulate a result mint address (in real code, call Web3 + SPL)
-      setTimeout(()=>{
-        const fakeMint = "Mint" + Math.random().toString(36).slice(2, 10) + "Dev" + Math.random().toString(36).slice(2, 6);
-        localStorage.setItem("mintedMint", fakeMint);
-        document.getElementById("mintOut").textContent = "Mint Address: " + fakeMint;
-        status.textContent = "Status: success → moving to Step 2";
-        // pre-fill step 2 and proceed
-        document.getElementById("md_mint").value = fakeMint;
-        setStep(2);
-      }, 900);
-    });
-
-    // --- Auto-continue when coming from /mint ---
-    try {
-      const qs = new URLSearchParams(location.search);
-      const qsMint = qs.get("mint");
-      const stored = localStorage.getItem("mintedMint");
-      const mint = qsMint || stored;
-      const go = qs.get("go");
-      if (mint) {
-        const set = (id)=>{ const el=document.getElementById(id); if (el) el.value=mint; };
-        set("md_mint"); set("sec_mint"); set("ry_mint");
-        // If we arrived with ?go=2 or ?mint=..., jump straight to Step 2
-        if (typeof setStep === "function" && (go === "2" || qsMint)) setStep(2);
-      }
-    } catch {}
-  </script>
-
-  <!-- optional: your front-desk agent -->
-  <script src="/static/js/agent.js"></script>
 </body>
 </html>

@@ -1,0 +1,70 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>pump.coin – Debug</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <style>
+    body { font-family: system-ui, Arial; background:#0b0f1a; color:#e8f0ff; margin:0; padding:24px; }
+    .card { background:#0e1422; border:1px solid #1c2540; border-radius:14px; padding:20px; max-width:860px; }
+    button { padding:10px 16px; border-radius:10px; border:1px solid #2b3767; background:#111a33; color:#e8f0ff; cursor:pointer; }
+    pre { background:#0a0f1d; border:1px solid #1a2550; border-radius:12px; padding:12px; overflow:auto; }
+    .row{display:flex;gap:12px;align-items:center;margin:8px 0}
+    .ok{color:#79ffa1}.warn{color:#ffd479}.bad{color:#ff7b7b}
+  </style>
+</head>
+<body>
+  <h2>pump.coin – Debug</h2>
+  <div class="card">
+    <div class="row"><strong>Server</strong> <span id="server" class="bad">not checked yet</span></div>
+    <div class="row"><strong>Phantom detected</strong> <span id="detected" class="bad">no</span></div>
+    <div class="row"><strong>Connected wallet</strong> <span id="wallet" class="warn">none</span></div>
+    <div class="row">
+      <button id="connect">Connect Phantom</button>
+      <button id="disconnect">Disconnect</button>
+      <button id="check">Re-check</button>
+    </div>
+    <pre id="log"></pre>
+  </div>
+
+  <script>
+    const logEl = document.getElementById('log');
+    const set = (id, text, cls) => { const el = document.getElementById(id); el.textContent = text; el.className = cls||''; };
+    const log = (...a) => { logEl.textContent += a.map(x => typeof x==='object' ? JSON.stringify(x,null,2) : String(x)).join(' ') + "\n"; };
+
+    // This proves the server is serving this file
+    set('server','OK (static/debug.html served)','ok');
+
+    function refresh(){
+      const ph = window.solana && window.solana.isPhantom;
+      set('detected', ph ? 'yes' : 'no', ph ? 'ok' : 'bad');
+      if (ph && window.solana.publicKey) {
+        set('wallet', window.solana.publicKey.toString(), 'ok');
+      } else {
+        set('wallet', 'none', 'warn');
+      }
+    }
+
+    refresh();
+
+    document.getElementById('connect').onclick = async () => {
+      try {
+        if (!window.solana?.isPhantom) { log('Phantom not detected'); refresh(); return; }
+        const resp = await window.solana.connect({ onlyIfTrusted:false });
+        log('Connected:', resp.publicKey?.toString());
+        refresh();
+      } catch (e) { log('Connect error:', e?.message || e); }
+    };
+
+    document.getElementById('disconnect').onclick = async () => {
+      try {
+        await window.solana?.disconnect?.();
+        log('Disconnected');
+        refresh();
+      } catch (e) { log('Disconnect error:', e?.message || e); }
+    };
+
+    document.getElementById('check').onclick = refresh;
+  </script>
+</body>
+</html>

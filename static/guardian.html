@@ -24,6 +24,10 @@
     }
 
     function grade({ mintAuthority, freezeAuthority, metadataExists }){
+      // Simple rubric:
+      // A: mintAuthority=null AND freezeAuthority=null AND metadataExists
+      // B: mintAuthority=null AND (freezeAuthority!=null OR !metadataExists)
+      // C: mintAuthority!=null
       if (mintAuthority !== null) return { letter: "C", note: "Mint authority still present (can mint more)." };
       if (freezeAuthority !== null || !metadataExists) return { letter: "B", note: "Consider renouncing freeze and ensuring metadata is set." };
       return { letter: "A", note: "Good: mint & freeze renounced, metadata present." };
@@ -32,12 +36,16 @@
     async function runCheck(mintStr){
       const mintPk = new PublicKey(mintStr);
       const mdPda = mdPdaFor(mintPk);
+
       const info = await getMint(conn, mintPk);
       const mdAcc = await conn.getAccountInfo(mdPda);
+
       const mintAuthority = info.mintAuthority ? info.mintAuthority.toBase58() : null;
       const freezeAuthority = info.freezeAuthority ? info.freezeAuthority.toBase58() : null;
       const metadataExists = !!mdAcc;
+
       const g = grade({ mintAuthority, freezeAuthority, metadataExists });
+
       return {
         network: net,
         mint: mintPk.toBase58(),
@@ -65,6 +73,7 @@
         $("out").textContent = JSON.stringify(r, null, 2);
         $("out").classList.remove("hidden");
 
+        // Badge UI
         $("badge").textContent = r.grade;
         $("note").textContent = r.note;
         $("ex").href = r.links.explorer;

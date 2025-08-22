@@ -1,1 +1,2 @@
-﻿// front-desk agent placeholder
+﻿// static/js/agent.js
+console.log("[agent] ready");
