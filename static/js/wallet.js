@@ -1,63 +1,64 @@
-// static/js/wallet.js
-(function () {
-  const $ = (s) => document.querySelector(s);
-  const statusEl = () => $("#wallet-status");
-  const connectBtn = () => $("#connect-phantom");
-  const disconnectBtn = () => $("#disconnect-phantom");
+/* static/js/wallet.js */
+(() => {
+  const $ = (id) => document.getElementById(id);
 
-  function shorten(pk) { return pk.slice(0, 4) + "…" + pk.slice(-4); }
-  function setConnected(pubkey) {
-    if (statusEl()) statusEl().textContent = `Wallet: ${shorten(pubkey)}`;
-    if (connectBtn()) connectBtn().classList.add("hidden");
-    if (disconnectBtn()) disconnectBtn().classList.remove("hidden");
-  }
-  function setDisconnected() {
-    if (statusEl()) statusEl().textContent = "Wallet: not connected";
-    if (connectBtn()) connectBtn().classList.remove("hidden");
-    if (disconnectBtn()) disconnectBtn().classList.add("hidden");
+  function provider() {
+    return window.phantom?.solana || window.solana;
   }
 
-  async function init() {
-    // On GitHub Pages, ensure relative links resolve under /pump-coin/
-    try {
-      const isGh = location.hostname.endsWith("github.io");
-      if (isGh) {
-        const base = document.createElement("base");
-        base.href = "/pump-coin/";
-        document.head.prepend(base);
-      }
-    } catch {}
+  function short(pk) {
+    const s = pk.toString();
+    return `${s.slice(0, 4)}…${s.slice(-4)}`;
+  }
 
-    const provider = window.solana || (window.phantom && window.phantom.solana);
-    if (!provider || !provider.isPhantom) {
-      if (statusEl()) statusEl().textContent = "Install Phantom to continue";
-      if (connectBtn()) {
-        connectBtn().textContent = "Install Phantom";
-        connectBtn().onclick = () => window.open("https://phantom.app/", "_blank");
-      }
+  async function connect() {
+    const p = provider();
+    if (!p || !p.isPhantom) {
+      alert("Phantom not detected. Install it from https://phantom.app");
+      window.open("https://phantom.app", "_blank");
       return;
     }
-
-    provider.on("connect", () => setConnected(provider.publicKey.toBase58()));
-    provider.on("disconnect", () => setDisconnected());
-
-    // Try silent reconnect if user already approved on this origin
-    try { await provider.connect({ onlyIfTrusted: true }); } catch {}
-    if (provider.publicKey) setConnected(provider.publicKey.toBase58());
-    else setDisconnected();
-
-    if (connectBtn()) {
-      connectBtn().onclick = async () => {
-        try { await provider.connect(); }
-        catch (e) { console.warn("Connect rejected", e); }
-      };
-    }
-    if (disconnectBtn()) {
-      disconnectBtn().onclick = async () => {
-        try { await provider.disconnect(); } catch {}
-      };
+    try {
+      const resp = await p.connect({ onlyIfTrusted: false });
+      setConnected(resp.publicKey);
+    } catch (e) {
+      console.error("connect error", e);
     }
   }
 
-  document.addEventListener("DOMContentLoaded", init);
+  async function disconnect() {
+    try {
+      await provider()?.disconnect();
+    } catch (e) {
+      console.error("disconnect error", e);
+    }
+  }
+
+  function setConnected(pubkey) {
+    const status = $("wallet-status");
+    const btn = $("connect-phantom");
+    if (!status || !btn) return;
+
+    if (pubkey) {
+      status.textContent = `Wallet: ${short(pubkey)}`;
+      btn.textContent = "Disconnect";
+      btn.onclick = disconnect;
+    } else {
+      status.textContent = "Wallet: not connected";
+      btn.textContent = "Connect Phantom";
+      btn.onclick = connect;
+    }
+  }
+
+  window.addEventListener("DOMContentLoaded", () => {
+    // hook up events
+    const p = provider();
+    if (p) {
+      p.on?.("connect", (pk) => setConnected(pk));
+      p.on?.("disconnect", () => setConnected(null));
+      if (p.isConnected && p.publicKey) setConnected(p.publicKey);
+    }
+    const btn = $("connect-phantom");
+    if (btn) btn.onclick = connect; // default action
+  });
 })();

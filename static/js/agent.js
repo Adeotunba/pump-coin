@@ -1,3 +1,2 @@
-﻿// static/js/agent.js
-// keep this harmless so it never blocks wallet.js
+// static/js/agent.js
 console.log("[agent] ready");

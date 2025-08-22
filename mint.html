@@ -5,71 +5,95 @@
   <meta name="viewport" content="width=device-width,initial-scale=1" />
   <title>Mint — pump.coin</title>
   <style>
-    body{margin:0;background:#0c1220;color:#e6ecff;font-family:system-ui,Segoe UI,Roboto,Arial}
-    .wrap{max-width:1100px;margin:32px auto;padding:0 20px}
-    .top{display:flex;gap:16px;align-items:center;justify-content:space-between}
-    .badge{background:#0f172a;border:1px solid #1f2a44;padding:6px 10px;border-radius:10px}
-    .card{margin-top:24px;background:#0f172a;border:1px solid #1f2a44;border-radius:16px;padding:24px}
-    .row{display:grid;grid-template-columns:1fr 1fr;gap:16px}
-    .input{background:#0c1a36;border:1px solid #1f2a44;border-radius:10px;color:#e6ecff;padding:12px 10px}
-    .btn{background:#1d4ed8;border:0;color:#fff;padding:10px 14px;border-radius:10px;cursor:pointer}
-    .btn:disabled{opacity:.6;cursor:not-allowed}
-    .hidden{display:none}
+    body{margin:0;background:#0b1120;color:#e5e7eb;font-family:system-ui,Segoe UI,Roboto,Arial}
+    .row{display:flex;justify-content:space-between;align-items:center;padding:18px 24px}
+    .pill{background:#111827;border:1px solid #1f2937;color:#cbd5e1;padding:6px 10px;border-radius:10px}
+    .wrap{max-width:980px;margin:24px auto}
+    .card{background:#0f172a;border:1px solid #1f2937;border-radius:14px;padding:24px}
+    label{display:block;margin:10px 0 6px}
+    input{width:100%;padding:10px;background:#0b1220;border:1px solid #1f2937;border-radius:10px;color:#e5e7eb}
+    .btn{margin-top:12px;background:#1d4ed8;border:none;color:#fff;padding:10px 14px;border-radius:10px;cursor:pointer}
+    .muted{color:#94a3b8}
     a{color:#93c5fd}
   </style>
 </head>
 <body>
-  <div class="wrap">
-    <div class="top">
-      <div style="display:flex;align-items:center;gap:12px;">
-        <a href="index.html" style="text-decoration:none;color:#e6ecff;font-weight:700;font-size:22px;">pump.coin</a>
-        <span class="badge">devnet</span>
-      </div>
-      <div style="display:flex;gap:10px;align-items:center;">
-        <span id="wallet-status">Wallet: not connected</span>
-        <button id="connect-phantom" class="btn">Connect Phantom</button>
-        <button id="disconnect-phantom" class="btn hidden" style="background:#334155;">Disconnect</button>
-      </div>
+  <div class="row">
+    <div style="display:flex;gap:12px;align-items:center">
+      <a href="index.html" style="text-decoration:none;color:#e5e7eb;font-weight:700;font-size:22px">pump.coin</a>
+      <span class="pill">devnet</span>
     </div>
+    <div style="display:flex;gap:12px;align-items:center">
+      <span id="wallet-status">Wallet: not connected</span>
+      <button id="connect-phantom" class="btn">Connect Phantom</button>
+    </div>
+  </div>
 
+  <div class="wrap">
     <div class="card">
       <h2>Step 1 — Mint Token (Devnet)</h2>
-      <p>Creates an SPL token and mints full supply to your wallet’s ATA. <b>Devnet only</b> for now.</p>
+      <p class="muted">Creates an SPL token and mints full supply to your wallet’s ATA. <b>Devnet only</b> for now.</p>
 
-      <div class="row" style="margin:12px 0;">
-        <div>
-          <label>Decimals</label>
-          <input id="decimals" class="input" value="6" />
-        </div>
-        <div>
-          <label>Total Supply (tokens)</label>
-          <input id="supply" class="input" value="1000000000" />
-        </div>
-      </div>
+      <label>Decimals</label>
+      <input id="decimals" value="6" />
 
-      <div style="display:flex;align-items:center;gap:12px;margin-top:10px;">
-        <button id="mint-btn" class="btn" disabled>Create Token (Devnet)</button>
-        <div>Mint Address: <span id="mint-address">—</span></div>
-      </div>
+      <label>Total Supply (tokens)</label>
+      <input id="supply" value="1000000000" />
 
-      <p style="opacity:.8;margin-top:14px;">Once connected, the button will enable. (On this cut-down build we’re just verifying wallet connectivity on Pages.)</p>
+      <button id="mint-btn" class="btn">Create Token (Devnet)</button>
 
-      <p><a href="raydium.html">Next → Raydium</a></p>
+      <p id="mint-out" style="margin-top:12px"></p>
       <p><a href="index.html">← Back home</a></p>
     </div>
   </div>
 
-  <script>
-    // Enable the button once wallet is connected (from wallet.js handlers)
-    document.addEventListener("DOMContentLoaded", () => {
-      const hb = setInterval(() => {
-        const btn = document.getElementById("mint-btn");
-        const w = (window.solana || (window.phantom && window.phantom.solana));
-        if (btn && w && w.publicKey) { btn.disabled = false; clearInterval(hb); }
-      }, 400);
-    });
-  </script>
+  <!-- libs for minting on devnet -->
+  <script src="https://unpkg.com/@solana/web3.js@1.93.0/lib/index.iife.min.js"></script>
   <script src="static/js/agent.js"></script>
   <script src="static/js/wallet.js"></script>
+
+  <script>
+    // Minimal on-chain devnet mint (public-key only). You can replace with your fuller flow later.
+    const web3 = solanaWeb3;
+
+    async function createDevnetToken() {
+      const out = document.getElementById('mint-out');
+      const decimals = parseInt(document.getElementById('decimals').value || '6', 10);
+      const supply = BigInt(document.getElementById('supply').value || '1000000000');
+
+      const p = window.phantom?.solana;
+      if (!p?.publicKey) {
+        alert('Connect Phantom first.');
+        return;
+      }
+
+      try {
+        out.textContent = 'Preparing transaction...';
+
+        // Just a placeholder: request an airdrop to cover fees (devnet)
+        const connection = new web3.Connection(web3.clusterApiUrl('devnet'), 'confirmed');
+
+        // No-op tx to show the wallet works (you can swap in your SPL mint program flow)
+        const tx = new web3.Transaction().add(
+          web3.SystemProgram.transfer({
+            fromPubkey: p.publicKey,
+            toPubkey: p.publicKey,
+            lamports: 0
+          })
+        );
+
+        tx.feePayer = p.publicKey;
+        tx.recentBlockhash = (await connection.getLatestBlockhash()).blockhash;
+
+        const { signature } = await p.signAndSendTransaction(tx);
+        out.innerHTML = `Wallet OK ✅ — this page is live on devnet.<br/>Next, wire your actual mint logic here.<br/>Tx: <a target="_blank" href="https://explorer.solana.com/tx/${signature}?cluster=devnet">${signature}</a>`;
+      } catch (e) {
+        console.error(e);
+        alert(e.message || e.toString());
+      }
+    }
+
+    document.getElementById('mint-btn').addEventListener('click', createDevnetToken);
+  </script>
 </body>
 </html>
